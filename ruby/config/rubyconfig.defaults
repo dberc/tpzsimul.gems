@@ -113,7 +113,7 @@ g_DATA_BLOCK_BYTES: 64
 g_PAGE_SIZE_BYTES: 4096
 g_REPLACEMENT_POLICY: PSEDUO_LRU // currently, only other option is LRU
 
-g_PROCS_PER_CHIP: 1
+g_PROCS_PER_CHIP: 16
 
 
 // set automatically
@@ -203,12 +203,13 @@ TSO: false
 // ** INTERCONECT PARAMETERS **
 //
 g_PRINT_TOPOLOGY: true
-g_NETWORK_TOPOLOGY: HIERARCHICAL_SWITCH
-g_CACHE_DESIGN: NUCA  // specifies file prefix for FILE_SPECIFIED topology
+g_NETWORK_TOPOLOGY: FILE_SPECIFIED 
+g_CACHE_DESIGN: TOKEN_CMP  // specifies file prefix for FILE_SPECIFIED topology
 FAN_OUT_DEGREE: 4  // for HIERARCHICAL SWITCH topology
+g_SWITCH_DELAY: 1
 
 g_adaptive_routing: true
-NUMBER_OF_VIRTUAL_NETWORKS: 4
+NUMBER_OF_VIRTUAL_NETWORKS: 5
 
 // bandwidth unit is 1/1000 byte per cycle.  the following parameter is multiplied by
 //  topology specific link weights
@@ -464,3 +465,17 @@ MEM_FIXED_DELAY: 0
 // BASIC_BUS_BUSY_TIME: 3
 // MEM_CTL_LATENCY: 20
 // REFRESH_PERIOD: 3120
+
+//TOPAZ DEFAULT PARAMETERS
+g_TOPAZ_SIMULATION: M44-WH-NOC   //Can by a FILE and then uses rubisic.ini file definition
+g_TOPAZ_FLIT_SIZE:  16                   //by default TOPAZ stablish this
+g_TOPAZ_CLOCK_RATIO: 1                //this too
+g_TOPAZ_COMMAND_SIZE: 16
+g_TOPAZ_TRACE_FILE: /tmp/trace_out_topaz
+//Adaptive deactivation of TOPAZ. 
+// If there are less than g_MAX_MESSAGES_THROUGH_GEMS in the network, ruby uses ruby's network; otherwise ruby uses TOPAZ' network.
+// Default is 0, this means always use TOPAZ.
+g_MAX_MESSAGES_THROUGH_GEMS: 0
+// Number of TOPAZ threads define the number of extra threads devoted to topaz. You must compile with PTOPAZ option on TOPAZ Makefile.
+// Default is 0, this means TOPAZ uses the same thread as GEMS. 1 extra thread usually is enough
+g_NUM_TOPAZ_THREADS: 1

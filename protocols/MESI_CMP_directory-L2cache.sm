@@ -330,7 +330,22 @@ machine(L2Cache, "MOSI Directory L2 Cache CMP") {
       }
     }  // if not ready, do nothing
   }
-
+  
+  in_port(L1unblockNetwork_in, ResponseMsg, unblockToL2Cache) {
+    if(L1unblockNetwork_in.isReady()) {
+      peek(L1unblockNetwork_in,  ResponseMsg) {
+        assert(in_msg.Destination.isElement(machineID));
+        if (in_msg.Type == CoherenceResponseType:EXCLUSIVE_UNBLOCK) {
+          trigger(Event:Exclusive_Unblock, in_msg.Address);
+        } else if (in_msg.Type == CoherenceResponseType:UNBLOCK) {
+          trigger(Event:Unblock, in_msg.Address);
+        } else {
+          error("unknown unblock message");
+        }
+      }
+    }
+  }
+  
   // L1 Request
   in_port(L1RequestIntraChipL2Network_in, RequestMsg, L1RequestToL2Cache) {
     if(L1RequestIntraChipL2Network_in.isReady()) {
@@ -358,21 +373,6 @@ machine(L2Cache, "MOSI Directory L2 Cache CMP") {
               trigger(Event:L2_Replacement_clean, L2cacheMemory.cacheProbe(in_msg.Address));
             }
           }
-        }
-      }
-    }
-  }
-
-  in_port(L1unblockNetwork_in, ResponseMsg, unblockToL2Cache) {
-    if(L1unblockNetwork_in.isReady()) {
-      peek(L1unblockNetwork_in,  ResponseMsg) {
-        assert(in_msg.Destination.isElement(machineID));
-        if (in_msg.Type == CoherenceResponseType:EXCLUSIVE_UNBLOCK) {
-          trigger(Event:Exclusive_Unblock, in_msg.Address);
-        } else if (in_msg.Type == CoherenceResponseType:UNBLOCK) {
-          trigger(Event:Unblock, in_msg.Address);
-        } else {
-          error("unknown unblock message");
         }
       }
     }

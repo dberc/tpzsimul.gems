@@ -169,6 +169,8 @@ void out_intf_t::setDebugTime(uint64 t)
 //**************************************************************************
 bool out_intf_t::validDebug( void )
 {
+ /*VPV napa para hacer funckionar watch*/
+  if(!system_t::inst)return false;
   if ( m_starting_cycle > system_t::inst->getGlobalCycle() ) {
     return false;
   }

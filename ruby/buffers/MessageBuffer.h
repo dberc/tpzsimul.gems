@@ -65,6 +65,10 @@
 #ifndef MESSAGEBUFFER_H
 #define MESSAGEBUFFER_H
 
+#ifndef SIMPLENETWORK_H
+#include "SimpleNetwork.h"
+#endif 
+
 #include "Global.h"
 #include "MessageBufferNode.h"
 #include "Consumer.h"
@@ -124,7 +128,17 @@ public:
   void setSize(int size) {m_max_size = size;}
   int getSize();
   void setRandomization(bool random_flag) { m_randomization = random_flag; }
-
+#ifdef USE_TOPAZ
+  void setNetwork(SimpleNetwork* network) { m_net_ptr = network; }
+  void setOutPort() { m_out_port = true; }
+  void setInPort() { m_in_port = true; } 
+  void setOutSwitchPort() { m_out_switch_port = true; }
+  void setVNet(int vnet) { m_vnet = vnet; }
+  bool isOutPort() { return m_out_port; }
+  bool isInPort() { return m_in_port; }
+  bool isOutSwitchPort() { return m_out_switch_port; }
+#endif
+	
   void clear();
 
   void print(ostream& out) const;
@@ -163,6 +177,15 @@ private:
   bool m_ordering_set;
   bool m_randomization;
   Time m_last_arrival_time;
+#ifdef USE_TOPAZ
+	//Support adaptive Topaz
+  SimpleNetwork* m_net_ptr;
+  bool m_out_port;
+  bool m_in_port;
+  bool m_out_switch_port;
+  int m_vnet;
+#endif
+	
 };
 
 // Output operator declaration

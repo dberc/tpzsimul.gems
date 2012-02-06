@@ -21,8 +21,8 @@ cd ../..
 # Edit this link command to link to your import directory
 # in your Simics 3 install
 echo "Making symlink for import directory..."
-#ln -s /simics-3.0.11/import import
-ln -s /p/multifacet/projects/simics/simics-3.0.11/import import
+ln -s  /p/atc.galerna/simics/simics-3.0.19/import import
+#ln -s /p/multifacet/projects/simics/simics-3.0.11/import import
 
 echo "Making symlinks for modules..."
 cd modules

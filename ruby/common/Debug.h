@@ -149,6 +149,12 @@ const bool ASSERT_FLAG = false;
 const bool ASSERT_FLAG = true;
 #endif
 
+#ifndef unlikely
+#define unlikely(expr) __builtin_expect(!!(expr), 0)
+#define likely(expr) __builtin_expect(!!(expr), 1)
+#endif
+
+
 #undef assert
 #define assert(EXPR) ASSERT(EXPR)
 #undef ASSERT

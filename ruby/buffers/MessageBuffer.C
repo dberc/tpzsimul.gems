@@ -79,6 +79,12 @@ MessageBuffer::MessageBuffer()
   m_msgs_this_cycle = 0;
   m_not_avail_count = 0;
   m_priority_rank = 0;
+#ifdef USE_TOPAZ
+  m_out_port = false;
+  m_in_port = false;
+  m_out_switch_port = false;
+#endif
+	
 }
 
 MessageBuffer::MessageBuffer(const Chip* chip_ptr)  // The chip_ptr is ignored, but could be used for extra debugging
@@ -99,6 +105,12 @@ MessageBuffer::MessageBuffer(const Chip* chip_ptr)  // The chip_ptr is ignored, 
   m_msgs_this_cycle = 0;
   m_not_avail_count = 0;
   m_priority_rank = 0;
+#ifdef USE_TOPAZ
+  m_out_port = false;
+  m_in_port = false;
+  m_out_switch_port = false;
+#endif
+	
 }
 
 int MessageBuffer::getSize()
@@ -277,6 +289,20 @@ void MessageBuffer::enqueue(const MsgPtr& message, Time delta)
     WARN_EXPR(m_name);
     ERROR_MSG("No consumer");
   }
+#ifdef USE_TOPAZ
+	//Gets the number of messages in ruby network for adaptive TOPAZ deactivation
+  if (m_in_port) {
+    assert(m_net_ptr != NULL);
+	assert(!m_out_port);
+	const NetworkMessage* net_msg_ptr = static_cast<const NetworkMessage*>(message.ref());
+	m_net_ptr->increaseNumMsg(net_msg_ptr->getInternalDestination().count());
+  }
+  else if (m_out_port) {
+    assert(m_net_ptr != NULL);
+    m_net_ptr->decreaseNumMsg(m_vnet);
+  }
+#endif
+	
 }
 
 int MessageBuffer::dequeue_getDelayCycles(MsgPtr& message)

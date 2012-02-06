@@ -62,14 +62,26 @@ include network/${GARNET}/Makefile.include
 include network/${GARNET_DETAIL}/Makefile.include
 include network/${ORION}/Makefile.include
 
+#Topaz includes goes here. In contras to garnet, topaz goes outside 
+#GEMS root. Makefile.topaz declares the absolute path of the source 
+#code and if you want to use it or not.
+
+include $(GEMS_ROOT)/common/Makefile.topaz
+
 ifdef PROTOCOL
 GENERATED_DIR := generated/$(PROTOCOL)
 HTML_DIR := html/$(PROTOCOL)
 endif
 
+ifdef USE_TOPAZ
+  VPATH := $(TOPAZ_ROOT)/inc/
+else
+  VPATH :=
+endif
+
 # Note that VPATH has to be defined before the common Makefile is
 # included.
-VPATH = ${NETWORK_VPATH}:${GARNET_VPATH}:.:${GARNET_DETAIL_VPATH}:${ORION_VPATH}:$(GEMS_ROOT)/common:$(GEMS_ROOT)/common/gzstream:buffers:common:slicc_interface:profiler:config:eventqueue:system:interfaces:simics:tester:recorder:log_tm:rock:$(GENERATED_DIR):$(GEMS_ROOT)/common/ioutil:network
+VPATH += ${NETWORK_VPATH}:${GARNET_VPATH}:.:${GARNET_DETAIL_VPATH}:${ORION_VPATH}:$(GEMS_ROOT)/common:$(GEMS_ROOT)/common/gzstream:buffers:common:slicc_interface:profiler:config:eventqueue:system:interfaces:simics:tester:recorder:log_tm:rock:$(GENERATED_DIR):$(GEMS_ROOT)/common/ioutil:network
 
 # Need to keep this statement here, the order is tricky here
 include $(GEMS_ROOT)/common/Makefile.common
@@ -94,6 +106,11 @@ SPECIAL_FLAGS += -DIS_RUBY
 
 #DEBUG_FLAGS += -DRUBY_DEBUG=true
 DEBUG_FLAGS += -DRUBY_DEBUG=false 
+
+ifneq ($(TOPAZ_TRACE),no)
+  SPECIAL_FLAGS += -DTOPAZ_TRACE
+endif
+
 
 # Turn this ON to insert a layer of translation that will present
 # Ruby with a contiguous memory space, even if Simics' actual memory space
@@ -233,6 +250,23 @@ SRC_CPP := \
 	#XactAbortRequestGenerator.C \
 	XactRequestGenerator.C \
 
+#
+# Topaz Linking
+#
+
+ifdef USE_TOPAZ
+ifeq ($(DEBUG), no)
+  SYCHOST:=$(shell uname -m)
+else
+  SYCHOST:=$(shell uname -m)#_debug
+endif
+  LDFLAGS += -L $(TOPAZ_ROOT)/mak/$(SYCHOST)/ -lpthread
+  LIBSIC = $(TOPAZ_ROOT)/mak/$(SYCHOST)/libtpz.a
+  SPECIAL_FLAGS += -DUSE_TOPAZ
+  POSTLINK = -ltpz -lm
+endif
+
+
 #########
 #begin targets
 #########
@@ -315,6 +349,10 @@ endif
 endif
 endif
 
+ifdef USE_TOPAZ
+	$(MAKE) -C $(TOPAZ_ROOT)/mak clean
+endif
+
 # Generate protocol handlers from protocol descriptions
 $(GENERATED_DIR)/generated: $(GENERATED_DIR)/created $(HTML_DIR)/created $(DESC) $(SLICC) attrparse.y attrlex.l
 	@echo "Generating protocol handlers"
@@ -330,17 +368,23 @@ $(GENERATED_DIR)/default_param.h: ../common/ioutil/embedtext.py config/rubyconfi
 $(GENERATED_DIR)/tester_param.h: ../common/ioutil/embedtext.py config/tester.defaults
 	python ../common/ioutil/embedtext.py config/tester.defaults $(GENERATED_DIR)/tester_param.h global_default_tester_param
 
-$(BIN_DIR)/tester.exec: simics_api_dummy.c $(RUBY_OBJ) $(BIN_DIR)/created $(GENERATED_DIR)/generated
+$(BIN_DIR)/tester.exec: simics_api_dummy.c $(RUBY_OBJ) $(BIN_DIR)/created $(GENERATED_DIR)/generated $(LIBSIC)
 	@echo ""
 	@echo "Linking tester binary ..."
-	$(CC) -o $@ $(LDFLAGS) simics/simics_api_dummy.c $(RUBY_OBJ) 
+	$(CC) -o $@ $(LDFLAGS) simics/simics_api_dummy.c $(RUBY_OBJ) $(POSTLINK)
 	@echo "Made tester"
+
+ifdef USE_TOPAZ
+$(LIBSIC): $(TOPAZ_ROOT)/src/*.cpp $(TOPAZ_ROOT)/inc/*.hpp
+	@echo "Compiling TOPAZ network simulator ..."
+	$(MAKE) -C $(TOPAZ_ROOT)/mak
+endif
 
 # make ruby.closure for template closure, as side effect some .o will get
 # recompiled. If you see error in this stage, it might be the case you want to
 # add more dummy functions in simics_api_dummy.c.
 $(BIN_DIR)/ruby.closure: simics_api_dummy.c $(RUBY_OBJ) $(BIN_DIR)/created $(GENERATED_DIR)/generated
-	$(CC) -o /dev/null $(LDFLAGS) simics/simics_api_dummy.c $(RUBY_OBJ) 
+	$(CC) -o /dev/null $(LDFLAGS) simics/simics_api_dummy.c $(RUBY_OBJ) $(POSTLINK)
 	touch $@
 	@echo "Template closure done"
 
@@ -349,12 +393,24 @@ module_go: $(GENERATED_DIR)/generated $(BIN_DIR)/ruby.closure
 
 movemodule:
 ifeq ($(SIMICS_VERSION),2.2.X)
+  ifdef USE_TOPAZ
+	$(GEMS_ROOT)/scripts/prepare_simics_home.sh $(SIMICS_ROOT)/home/$(DESTINATION) $(HOST_TYPE) $(TOPAZ_ROOT)
+  else
+	$(GEMS_ROOT)/scripts/prepare_simics_home.sh $(SIMICS_ROOT)/home/$(DESTINATION) $(HOST_TYPE)
+  endif
 	$(GEMS_ROOT)/scripts/prepare_simics_home.sh $(SIMICS_ROOT)/home/$(DESTINATION) $(HOST_TYPE)
 	$(MV) $(SIMICS_ROOT)/$(HOST_TYPE)/lib/ruby.so $(SIMICS_ROOT)/home/$(DESTINATION)/modules/ruby-v9.so
 	$(MV) $(SIMICS_ROOT)/$(HOST_TYPE)/lib/python/mod_ruby_commands.py $(SIMICS_ROOT)/home/$(DESTINATION)/modules/python
 else
 ifeq ($(SIMICS_VERSION),3.0)
+  ifdef USE_TOPAZ
+	$(GEMS_ROOT)/scripts/prepare_simics_home.sh $(SIMICS_EXEC_ROOT)/home/$(DESTINATION) $(HOST_TYPE) $(TOPAZ_ROOT)
+  else
 	$(GEMS_ROOT)/scripts/prepare_simics_home.sh $(SIMICS_EXEC_ROOT)/home/$(DESTINATION) $(HOST_TYPE)
+  endif
+	$(GEMS_ROOT)/scripts/prepare_simics_home.sh $(SIMICS_EXEC_ROOT)/home/$(DESTINATION) $(HOST_TYPE)
+	$(MV) $(SIMICS_ROOT)/$(HOST_TYPE)/lib/ruby.so $(SIMICS_ROOT)/home/$(DESTINATION)/modules/ruby-v9.so
+	$(MV) $(SIMICS_ROOT)/$(HOST_TYPE)/lib/python/mod_ruby_commands.py $(SIMICS_ROOT)/home/$(DESTINATION)/modules/python
 else
 	@echo "Unrecognized value for SIMICS_VERSION: see common/Makefile.common"
 	exit 1

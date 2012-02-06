@@ -80,6 +80,11 @@
 #include "LazyTransactionVersionManager.h"
 #include "SimicsHypervisor.h"
 
+#ifdef USE_TOPAZ
+#include "Network.h"
+#endif
+
+
 #define XACT_MGR g_system_ptr->getChip(m_chip_ptr->getID())->getTransactionInterfaceManager(m_version)
 
 Sequencer::Sequencer(AbstractChip* chip_ptr, int version) {
@@ -140,6 +145,10 @@ void Sequencer::wakeup() {
         WARN_EXPR(request.getTime());
         WARN_EXPR(current_time - request.getTime());
         WARN_EXPR(*m_readRequestTable_ptr[p]);
+#ifdef USE_TOPAZ
+        cerr<<"******TOPAZ IS DUMPING STATISTICS AFTER A DEADLOCK************"<<endl;
+				g_system_ptr->getNetwork()->printStats(cerr);
+#endif		  
         ERROR_MSG("Aborting");
         deadlock = true;
       }
@@ -158,6 +167,10 @@ void Sequencer::wakeup() {
         WARN_EXPR(current_time - request.getTime());
         WARN_EXPR(keys.size());
         WARN_EXPR(*m_writeRequestTable_ptr[p]);
+#ifdef USE_TOPAZ
+        cerr<<"******TOPAZ IS DUMPING STATISTICS AFTER A DEADLOCK************"<<endl;
+				g_system_ptr->getNetwork()->printStats(cerr);
+#endif		  
         ERROR_MSG("Aborting");
         deadlock = true;
       }

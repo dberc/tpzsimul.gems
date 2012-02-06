@@ -1,6 +1,6 @@
 
 /*
-    Copyright (C) 1999-2008 by Mark D. Hill and David A. Wood for the
+    Copyright (C) 1999-2005 by Mark D. Hill and David A. Wood for the
     Wisconsin Multifacet Project.  Contact: gems@cs.wisc.edu
     http://www.cs.wisc.edu/gems/
 
@@ -19,8 +19,8 @@
     University of Wisconsin was performed by Alaa Alameldeen, Brad
     Beckmann, Jayaram Bobba, Ross Dickson, Dan Gibson, Pacia Harper,
     Derek Hower, Milo Martin, Michael Marty, Carl Mauer, Michelle Moravan,
-    Kevin Moore, Andrew Phelps, Manoj Plakal, Daniel Sorin, Haris Volos, 
-    Min Xu, and Luke Yen.
+    Kevin Moore, Manoj Plakal, Daniel Sorin, Haris Volos, Min Xu, and Luke Yen.
+
     --------------------------------------------------------------------
 
     If your use of this software contributes to a published paper, we
@@ -123,6 +123,42 @@ void Switch::addOutPort(const Vector<MessageBuffer*>& out, const NetDest& routin
   throttle_ptr->addLinks(intermediateBuffers, out);
 
 }
+
+/*void Switch::addInNetPort(const Vector<MessageBuffer*>& in)
+{
+  m_perfect_switch_ptr->addInNetPort(in);
+}*/
+
+#ifdef USE_TOPAZ
+void Switch::addOutNetPort(const Vector<MessageBuffer*>& out, const NetDest& routing_table_entry, int link_latency, int bw_multiplier)
+{
+  Throttle* throttle_ptr = NULL;
+
+  // Create a throttle
+  throttle_ptr = new Throttle(m_switch_id, m_throttles.size(), link_latency, bw_multiplier);
+  m_throttles.insertAtBottom(throttle_ptr);
+  
+  // Create one buffer per vnet (these are intermediaryQueues)
+  Vector<MessageBuffer*> intermediateBuffers;
+  for (int i=0; i<out.size(); i++) {
+    MessageBuffer* buffer_ptr = new MessageBuffer;
+    // Make these queues ordered
+    buffer_ptr->setOrdering(false);
+    if(FINITE_BUFFERING) {
+      buffer_ptr->setSize(FINITE_BUFFER_SIZE); 
+    }
+    intermediateBuffers.insertAtBottom(buffer_ptr);
+    m_buffers_to_free.insertAtBottom(buffer_ptr);
+  }
+  
+  // Hook the queues to the PerfectSwitch
+  m_perfect_switch_ptr->addOutNetPort(intermediateBuffers, routing_table_entry);
+  
+  // Hook the queues to the Throttle
+  throttle_ptr->addLinks(intermediateBuffers, out);
+
+}
+#endif
 
 void Switch::clearRoutingTables()
 {

@@ -324,6 +324,9 @@ ifeq ($(SIMICS_VERSION),2.2.X)
 else
 ifeq ($(SIMICS_VERSION),3.0)
 	$(GEMS_ROOT)/scripts/prepare_simics_home.sh $(SIMICS_EXEC_ROOT)/home/$(DESTINATION) $(HOST_TYPE)
+	$(MV) $(SIMICS_ROOT)/$(HOST_TYPE)/lib/opal.so $(SIMICS_ROOT)/home/$(DESTINATION)/modules/opal-v9.so
+	$(MV) -f $(SIMICS_ROOT)/$(HOST_TYPE)/lib/python/mod_opal_commands.py $(SIMICS_ROOT)/home/$(DESTINATION)/modules/python
+
 else
 	@echo "Unrecognized value for SIMICS_VERSION: see commmon/Makefile.common"
 	exit 1

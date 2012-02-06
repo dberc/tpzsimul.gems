@@ -122,7 +122,12 @@ public:
   	void makeOutLink(SwitchID src, NodeID dest, const NetDest& routing_table_entry, int link_latency, int link_weight,  int bw_multiplier, bool isReconfiguration);
   	void makeInLink(SwitchID src, NodeID dest, const NetDest& routing_table_entry, int link_latency, int bw_multiplier, bool isReconfiguration);
   	void makeInternalLink(SwitchID src, NodeID dest, const NetDest& routing_table_entry, int link_latency, int link_weight, int bw_multiplier, bool isReconfiguration);
-
+#ifdef USE_TOPAZ
+	void enableTopaz(){return;}
+	void disableTopaz(){return;}
+	void setTopazMapping (SwitchID node0, SwitchID node1){return;}
+#endif
+	
 private:
 	void checkNetworkAllocation(NodeID id, bool ordered, int network_num);
 

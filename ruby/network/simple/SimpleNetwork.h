@@ -101,6 +101,21 @@
 #include "Network.h"
 #include "NodeID.h"
 
+#ifdef USE_TOPAZ
+#include "NetworkMessage.h"
+struct MessageTopaz{
+	MsgPtr message;
+	int    vnet;
+	int    queue;
+	int    destinations;
+	int    bcast;
+	int    id;
+	//added para multicast
+	Vector< Vector < int > > Vector_aux;
+};
+#endif
+
+
 class NetDest;
 class MessageBuffer;
 class Throttle;
@@ -120,6 +135,75 @@ public:
   void clearStats();
   void printConfig(ostream& out) const;
 
+#ifdef USE_TOPAZ
+	int getNumberOfNodes()const {return m_nodes;};
+	unsigned getProcRouterRatio() const
+	{  return m_processorClockRatio;}
+	unsigned getFlitSize() const
+	{ return m_flitSize;}
+	unsigned getUnifiy()
+	{
+		return m_unify;
+	}
+	// returns the number of switches in the network
+	int getNetSize()
+	{
+		return m_switch_ptr_vector.size();
+	}
+	int getMessageSizeTopaz(MessageSizeType size_type) const;
+	int  isRequest(MessageSizeType size_type) const;
+	int getTriggerSwitch() const
+	{
+		return m_firstTrigger;
+	}
+	void setTriggerSwitch(int router)
+	{
+		m_firstTrigger=router;
+	}
+	
+	bool inWarmup() { return m_in_warmup; }
+	bool useGemsNetwork(int vnet);
+	
+	void enableTopaz()
+	{
+		if( m_permanentDisable )
+		{
+			cout<<"TOPAZ PERMANETLY DISABLED"<<endl;
+			return;
+		}
+		cout<<endl<<"<TOPAZ> +++++++ Topaz Enabled! +++++++ </TOPAZ>"<<endl;
+		m_in_warmup = false;
+		return;
+	}
+	
+	void disableTopaz()
+	{
+		cout<<endl<<"<TOPAZ> ******* Topaz DISABLED! ******* </TOPAZ>"<<endl;
+		m_in_warmup = true;
+		return;
+	}
+	
+	void increaseNumMsg(int num);
+	void decreaseNumMsg(int vnet);
+	void increaseNumOrderedMsg(int num);
+	void increaseNumTopazOrderedMsg (int num);
+	void increaseNumTopazMsg(int num);
+	void decreaseNumTopazMsg (int vnet);
+	int getTopazMessages() { return m_number_topaz_messages; }
+	void increaseTotalMsg (int num) { m_totalNetMsg+=num; }
+	int getTotalMsg () { return m_totalNetMsg; }
+	int getTotalTopazMsg() { return m_totalTopazMsg; }
+	const unsigned numberOfMessages() { return m_number_messages; }
+	const unsigned numberOfOrderedMessages() { return m_number_ordered_messages; }
+	const unsigned numberOfTopazOrderedMessages() { return m_number_topaz_ordered_messages; }
+	const unsigned numberOfTopazMessages() { return m_number_topaz_messages; }
+	void setTopazMapping (SwitchID node0, SwitchID node1);
+	SwitchID getSwitch(int ext_node) { return m_forward_mapping[ext_node]; }
+	NetDest getMachines(SwitchID sid) { return m_reverse_mapping[sid]; }
+	
+	
+#endif //USE_TOPAZ
+	
   void reset();
 
   // returns the queue requested for the given component
@@ -145,7 +229,25 @@ private:
   SwitchID createSwitch();
   void makeTopology();
   void linkTopology();
-
+#ifdef USE_TOPAZ
+	unsigned m_processorClockRatio;
+	unsigned m_flitSize;
+	unsigned m_unify;
+	int m_firstTrigger;
+	unsigned m_commandSizeTopaz;
+	unsigned m_dataSizeTopaz;
+	bool m_in_warmup;
+	unsigned m_permanentDisable;
+	int m_number_messages;
+	int m_number_ordered_messages;
+	int m_number_topaz_ordered_messages;
+	int m_number_topaz_messages;
+	SwitchID *m_forward_mapping; //maps each MachineID to the internal node it is connected to.
+	Vector<NetDest> m_reverse_mapping; //maps each internal node to the MachineIDs it connects.
+	int m_totalNetMsg;
+	int m_totalTopazMsg;
+#endif
+	
 
   // Private copy constructor and assignment operator
   SimpleNetwork(const SimpleNetwork& obj);

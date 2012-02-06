@@ -23,6 +23,7 @@
 GEMS_ROOT = $(SRC_BASE)/../../
 
 include $(GEMS_ROOT)/common/Makefile.simics_version
+include $(GEMS_ROOT)/common/Makefile.topaz
 
 MODULE_DIR = ruby
 MODULE_NAME = ruby
@@ -74,6 +75,9 @@ endif
 endif
 endif
 
+ifdef USE_TOPAZ
+  MODULE_LDFLAGS+=-ltpz -L $(TOPAZ_ROOT)/mak/$(shell uname -m)/ -lpthread -lm
+endif
 
 
 

@@ -29,6 +29,17 @@ if [ -d "$1" ]; then
     relink_if_link ../sarek/simics simics
     # for x86
     #relink_if_link ../x86-440bx/simics simics
+    if [ ! -z $3 ]; then
+      relink_if_link "$3"/sgm sgm
+      if [ ! -e TPZSimul.ini ]; then
+        cat > TPZSimul.ini << EOF
+<RouterFile     id="sgm/RouterGems.sgm">
+<NetworkFile    id="sgm/NetworkGems.sgm">
+<SimulationFile id="sgm/SimulaGems.sgm">
+EOF
+      fi
+    fi
+
   else
     echo "usage: prepare_simics_home.sh <home dir> <host type>"
   fi

@@ -72,6 +72,7 @@
 #include "Vector.h"
 #include "Consumer.h"
 #include "NodeID.h"
+#include "Message.h"
 
 class MessageBuffer;
 class NetDest;
@@ -102,7 +103,17 @@ public:
   
   // Public Methods
   void wakeup();
-
+	void wakeupVnet(int vnet);
+#ifdef USE_TOPAZ
+	int getUnicastDestination(NetDest destinations);
+	unsigned long long getMulticastDestination(NetDest& destinations);
+	void filterZeroDistanceMessages(MsgPtr& msg_ptr, int vnet, NetDest& destinations);
+	NetDest getConsumerDestinations(int switch_id, NetDest& mensaje);
+	void wakeUpTopaz();
+	void addOutNetPort(const Vector<MessageBuffer*>& out, const NetDest& routing_table_entry);
+#endif
+	
+	
   void printStats(ostream& out) const;
   void clearStats();
   void printConfig(ostream& out) const;
@@ -126,6 +137,11 @@ private:
   int m_round_robin_start;
   int m_wakeups_wo_switch;
   SimpleNetwork* m_network_ptr;
+#ifdef USE_TOPAZ
+  long unsigned m_ruby_start;
+  long unsigned m_minimunTimeAgain;
+#endif
+
 };
 
 // Output operator declaration

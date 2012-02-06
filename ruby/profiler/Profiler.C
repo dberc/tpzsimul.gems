@@ -95,6 +95,7 @@
 #include "interface.h"
 #include "XactVisualizer.h"
 #include "XactProfiler.h"
+#include "SimpleNetwork.h"
 
 extern "C" {
 #include "Rock.h"
@@ -882,7 +883,20 @@ void Profiler::printStats(ostream& out, bool short_stats)
     for (int i = 0; i < m_delayedCyclesVCHistograms.size(); i++) {
       out << "  virtual_network_" << i << "_delay_cycles: " << m_delayedCyclesVCHistograms[i] << endl;
     }
-  
+#ifdef USE_TOPAZ
+	  out << endl;
+	  SimpleNetwork* net=static_cast<SimpleNetwork*>(g_system_ptr->getNetwork());
+	  long int Topaz_messages=net->getTotalTopazMsg();
+	  int percent = 100*Topaz_messages/(Topaz_messages+net->getTotalMsg()+1);
+	  out << "TOPAZ NETWORK USAGE" << endl;
+	  out << "(RUBY point of view. May differ from TOPAZ if multiple destinations are connected on a switch)" << endl;
+	  out << "----------------------------------------------------------------------------------------------" << endl;
+	  out << "Usage TOPAZ network: " << percent << "%" << endl;
+	  out << "Total TOPAZ messages: " << Topaz_messages << endl;
+	  out << "Total Number of messages: " << Topaz_messages+net->getTotalMsg() << endl;
+	  out << endl;
+#endif
+	  
     printResourceUsage(out);
   }
 

@@ -102,6 +102,10 @@ public:
   ~Switch();
   
   void print(ostream& out) const;
+#ifdef USE_TOPAZ
+  void addOutNetPort(const Vector<MessageBuffer*>& out, const NetDest& routing_table_entry, int link_latency, int bw_multiplier);
+#endif
+	
 private:
 
   // Private copy constructor and assignment operator

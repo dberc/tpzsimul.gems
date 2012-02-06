@@ -65,6 +65,12 @@
 #include "PrioHeap.h"
 #include "System.h"
 
+#ifdef USE_TOPAZ
+#include "Network.h"
+#include "SimpleNetwork.h"
+#endif
+
+
 Tracer::Tracer()
 {
   m_enabled = false;

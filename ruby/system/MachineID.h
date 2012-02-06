@@ -75,6 +75,28 @@ struct MachineID {
   int num;  // range: 0 ... number of this machine's components in the system - 1
 };
 
+#ifdef USE_TOPAZ
+// Example for 8 L1s, 32 L2s and 8 memories.
+//
+// 0 -------- 7 8 -------- 39 40 -------- 47      -> node number received
+// L1_0 -- L1_7 L2_0 -- L2_31 Mem_0 -- Mem_7      -> MachineID returned
+
+extern inline
+MachineID nodeNumber_to_MachineID(SwitchID node) {
+	for (MachineType m = MachineType_FIRST; m < MachineType_NUM; ++m) {
+		int num_machines = MachineType_base_count(m);
+		if (node < num_machines) {
+			MachineID mid = {m, node};
+			return mid;
+		}
+		else {
+			node = node - num_machines;
+		}
+	}
+	ERROR_MSG("Wrong number of node.");
+}
+#endif
+
 extern inline
 string MachineIDToString (MachineID machine) {
   return MachineType_to_string(machine.type)+"_"+int_to_string(machine.num); 

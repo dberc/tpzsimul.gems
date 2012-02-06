@@ -52,6 +52,7 @@ PARAM_BOOL(  g_DISTRIBUTED_PERSISTENT_ENABLED );
 PARAM_BOOL(  g_DYNAMIC_TIMEOUT_ENABLED );
 PARAM( g_RETRY_THRESHOLD );
 PARAM( g_FIXED_TIMEOUT_LATENCY );
+PARAM( g_SWITCH_DELAY );
 
 PARAM(  g_trace_warmup_length );
 PARAM_DOUBLE( g_bash_bandwidth_adaptive_threshold );
@@ -320,4 +321,14 @@ PARAM( REFRESH_PERIOD );
 PARAM( TFAW );
 PARAM( MEM_RANDOM_ARBITRATE );
 PARAM( MEM_FIXED_DELAY );
+
+//TOPAZ PARAMETERS. OVERWRITES SGML DEFINED PARAMETERS IN TOPAZ!!!
+PARAM_STRING(g_TOPAZ_SIMULATION);  //Name of the simulation indicated in TPZSimul.ini
+PARAM(g_TOPAZ_FLIT_SIZE);		   //Wire width (not multi phit support)
+PARAM(g_TOPAZ_CLOCK_RATIO);        //Clock ratio between ruby and topaz (>1 indicates TOPAZ is slower)
+PARAM(g_TOPAZ_COMMAND_SIZE);       //Coherence protocol size in bytes
+PARAM_STRING(g_TOPAZ_TRACE_FILE);  //Output file of TOPAZ trace (in case of being activated) 
+PARAM( g_MAX_MESSAGES_THROUGH_GEMS );  // Minimum number of messages in-network to activate TOPAZ 
+PARAM( g_NUM_TOPAZ_THREADS ); //Number of threads devoted to TOPAZ
+
 

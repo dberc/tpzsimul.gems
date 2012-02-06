@@ -526,8 +526,8 @@ void   static_inst_t::setNextPC( void )
 void static_inst_t::decodeFails( int line, uint32 inst )
 {
   tick_t error_cycle = system_t::inst->getGlobalCycle();
-  DEBUG_OUT("### statici::decodeFails. line:%d. inst=0x%0x cycle[ %lld ]\n", line, inst, error_cycle);
-  printBits( inst );
+ // DEBUG_OUT("### statici::decodeFails. line:%d. inst=0x%0x cycle[ %lld ]\n", line, inst, error_cycle);
+ // printBits( inst );
   initialize();
   m_type   = DYN_EXECUTE;
   m_opcode = i_mop;

@@ -1,0 +1,12 @@
+#  
+#
+#Place here your topaz  *absolute* path.
+TOPAZ_ROOT :=/p/atc.galerna/users/prietop/GEMS_TOPAZ/TOPAZ
+
+#If you want to run TOPAZ -u option, set TOPAZ_TRACE to "yes" and put the absolute path of trace file
+TOPAZ_TRACE ?= no
+
+# NOTE: You are using TOPAZ if USE_TOPAZ is defined. If you don't want to use TOPAZ comment the following line.
+# NOTE2: When you comment/uncomment USE_TOPAZ flag, run "make clean" before recompiling. 
+#        Alternatively, you can run ruby/touch_topaz.sh
+#USE_TOPAZ = yes

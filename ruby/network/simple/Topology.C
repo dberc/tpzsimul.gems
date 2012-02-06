@@ -65,7 +65,11 @@
 
 #include "Topology.h"
 #include "NetDest.h"
+#ifdef USE_TOPAZ
+#include "SimpleNetwork.h"
+#else
 #include "Network.h"
+#endif
 #include "TopologyType.h"
 #include "RubyConfig.h"
 #include "util.h"
@@ -106,7 +110,25 @@ void Topology::init()
     addLink(id, 1, NETWORK_LINK_LATENCY);
     return;
   }
-
+#ifdef USE_TOPAZ
+	TopologyType topology = string_to_TopologyType(g_NETWORK_TOPOLOGY);
+	switch (topology) {
+		case TopologyType_TORUS_2D:
+			make2DTorus();
+			break;
+		case TopologyType_FILE_SPECIFIED:
+			//FIXME: if (Protocol::m_NUCA)
+			if(1)
+				makeFileSpecified();
+			else
+				ERROR_MSG("You can only use g_NETWORK_TOPOLOGY: FILE_SPECIFIED with a NUCA protocol.");
+			break;
+		default:
+			ERROR_MSG("Unexpected typology type. Use g_NETWORK_TOPOLOGY: TORUS_2D or FILE_SPECIFIED.")
+	}
+	return;
+#else
+	
   // topology-specific set-up
   TopologyType topology = string_to_TopologyType(g_NETWORK_TOPOLOGY);
   switch (topology) {
@@ -128,7 +150,7 @@ void Topology::init()
   default:
     ERROR_MSG("Unexpected typology type")
   }
-
+#endif //USE_TOPAZ
   // initialize component latencies record
   m_component_latencies.setSize(0);
   m_component_inter_switches.setSize(0);
@@ -139,7 +161,6 @@ void Topology::makeSwitchesPerChip(Vector< Vector < SwitchID > > &nodePairs, Vec
 
   Vector < SwitchID > nodes;  // temporary buffer
   nodes.setSize(2);
-
   Vector<bool> endpointConnectionExist;  // used to ensure all endpoints are connected to the network
   endpointConnectionExist.setSize(m_nodes);
   // initialize endpoint check vector
@@ -288,7 +309,6 @@ void Topology::make2DTorus()
     ASSERT(nodePairs[k].size() == 2);
     addLink(nodePairs[k][0], nodePairs[k][1], latencies[k], bw_multis[k]);
   }
-
 }
 
 // hierarchical switch topology
@@ -568,6 +588,7 @@ void Topology::makeFileSpecified()
         otherDirectionNodes[1] = nodes[0]+m_nodes;
       }
       nodePairs.insertAtBottom(otherDirectionNodes);
+		
       latencies.insertAtBottom(latency);
       if (weight != -1) {
         weights.insertAtBottom(weight);
@@ -700,6 +721,10 @@ void Topology::makeLink(SwitchID src, SwitchID dest, const NetDest& routing_tabl
     m_network_ptr->makeInLink(src, dest-(2*m_nodes), routing_table_entry, link_latency, bw_multiplier, isReconfiguration);      
   } else if (dest < 2*m_nodes) {
     assert(dest >= m_nodes);
+    #ifdef USE_TOPAZ
+      //The point to add information in SimpleNetwork file for TOPAZ.
+      m_network_ptr->setTopazMapping(dest-m_nodes, src);
+    #endif
     NodeID node = dest-m_nodes;
     m_network_ptr->makeOutLink(src-(2*m_nodes), node, routing_table_entry, link_latency, link_weight, bw_multiplier, isReconfiguration);
   } else {

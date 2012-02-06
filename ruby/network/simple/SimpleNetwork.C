@@ -75,6 +75,19 @@
 #include "Protocol.h"
 #include "Map.h"
 
+//First try. Integrating topaz inside ruby in a static way
+// Required includes
+#ifdef USE_TOPAZ
+#include <TPZSimulator.hpp> //Main simulator include
+#include <math.h>
+#include <fstream>
+using namespace std;
+#define TOPAZ_INI_FILE   "./rubsic.ini" //Name of configuration file.
+#define TOPAZ_OWN_FILE   "./TPZSimul.ini"
+#define FLITSIZE     4
+#define COMMANDSIZE  8
+#endif
+
 // ***BIG HACK*** - This is actually code that _should_ be in Network.C
 
 // Note: Moved to Princeton Network
@@ -99,7 +112,17 @@ SimpleNetwork::SimpleNetwork(int nodes)
     m_in_use[i] = false;
     m_ordered[i] = false;
   }
-  
+#ifdef USE_TOPAZ
+	m_number_messages=0;
+	m_number_ordered_messages=0;
+	m_number_topaz_ordered_messages=0;
+	m_number_topaz_messages=0;
+	m_totalNetMsg=0;
+	m_totalTopazMsg=0;
+	m_forward_mapping = new SwitchID[m_nodes];
+	m_reverse_mapping.setSize(m_nodes);
+#endif
+	
   // Allocate to and from queues
   m_toNetQueues.setSize(m_nodes);
   m_fromNetQueues.setSize(m_nodes);
@@ -108,7 +131,17 @@ SimpleNetwork::SimpleNetwork(int nodes)
     m_fromNetQueues[node].setSize(m_virtual_networks);
     for (int j = 0; j < m_virtual_networks; j++) {
       m_toNetQueues[node][j] = new MessageBuffer;
-      m_fromNetQueues[node][j] = new MessageBuffer;
+#ifdef USE_TOPAZ
+		m_toNetQueues[node][j]->setInPort();
+		m_toNetQueues[node][j]->setNetwork(this);
+		m_toNetQueues[node][j]->setVNet(j);
+#endif
+		m_fromNetQueues[node][j] = new MessageBuffer;
+#ifdef USE_TOPAZ
+		m_fromNetQueues[node][j]->setOutPort();
+		m_fromNetQueues[node][j]->setNetwork(this);
+		m_fromNetQueues[node][j]->setVNet(j);
+#endif
     }
   }
 
@@ -119,7 +152,222 @@ SimpleNetwork::SimpleNetwork(int nodes)
     m_switch_ptr_vector.insertAtBottom(new Switch(i, this));
   }
   m_topology_ptr->createLinks(false);  // false because this isn't a reconfiguration
+	//
+	//  TOPAZ INITIALIZATION AND INSTALLERS
+	//
+	//
+#ifdef USE_TOPAZ
+	//Support for CMP or SMP but not SMP of CMP
+	if (g_PROCS_PER_CHIP > 1 && g_NUM_PROCESSORS > g_PROCS_PER_CHIP) {
+		cerr<<endl<<"<TOPAZ> Feature not implemented. Only CMP or non-CMP SMPs </TOPAZ>"<<endl;
+		exit(-1);
+	}
+	
+	//A crossbar network in this context means a ideal network
+	if (TopologyType_CROSSBAR == string_to_TopologyType(g_NETWORK_TOPOLOGY)) {
+		cout<<endl<<"<TOPAZ> Topaz will be disabled we run only with a ideal Network </TOPAZ>"<<endl;
+		cout<<endl<<"<TOPAZ> If this is not intended, you should UNSET Crossbar as top. </TOPAZ>"<<endl;
+		m_permanentDisable=true;
+		return;
+	}
+	
+	m_permanentDisable=false;
+	
+	//TOPAZ initialization file is here?
+	//(otherwise segment.fault)
+	ifstream own(TOPAZ_OWN_FILE);
+	if (! own.good()) {
+		cerr << "<TOPAZ>  Can't open topaz init file :: " << TOPAZ_OWN_FILE << endl;
+		cerr<<" That file must have the route to Router, Network & Simulation SGML"<< endl;
+		cerr<<"</TOPAZ>"<<endl;
+		exit(-1);
+	}
+	own.close();
+	//from rubisic.ini
+	TPZString initString ;
+	if (TPZString(g_TOPAZ_SIMULATION) == TPZString("FILE")) {
+		ifstream ifs(TOPAZ_INI_FILE);
+		if (! ifs.good()) {
+			cerr << "<TOPAZ>  Can't open topaz-ruby conf file :: " << TOPAZ_INI_FILE << endl;
+			cerr<<" That file must include a line which refers to the network you want to use "<< endl;
+			cerr<<" (or define g_TOPAZ_SIMULATION with the name of simulation desired)</TOPAZ>"<<endl;
+			exit(-1);
+		}
+		initString = TPZString::lineFrom(ifs);
+		ifs.close();
+	}
+	else {
+		if (g_NUM_TOPAZ_THREADS>0) {
+		  initString  = TPZString("TPZSimul -N ") + TPZString(g_NUM_TOPAZ_THREADS) + TPZString(" -q -s  ")+ TPZString(g_TOPAZ_SIMULATION);
+		} 
+		else {
+		  initString  = TPZString("TPZSimul -q -s  ")+ TPZString(g_TOPAZ_SIMULATION);
+		}
+	}
+	
+	initString = initString + TPZString(" -t EMPTY -d 1000");     
+#ifdef TOPAZ_TRACE
+  initString = initString + TPZString(" -m ") + TPZString(g_TOPAZ_TRACE_FILE);
+  initString = initString + TPZString(",1000000");     
+#endif
+	
+	m_firstTrigger=~0;
+	//initString   += TPZString(" -L ") + TPZString(m_dataSizeTopaz)+TPZString(" -u ")+TPZString(4*m_dataSizeTopaz)+TPZString(" -r ");    // L de los buffers para CT
+	for (int i = 0; i < m_virtual_networks; i++) {
+		TPZSIMULATOR()->createSimulation(initString); 
+		//Simulated networks go from 1,2... (Watch out! is +1 than slicc's vnets) 
+		if (TPZSIMULATOR()->getSimulation(1)->needToUnify()) {
+			m_unify=1;
+			break;
+		}
+		else {
+			m_unify=m_virtual_networks; 
+		}
+	} 
+	
+	if (!g_TOPAZ_FLIT_SIZE) { //Not specified by ruby conf
+		//Adjust buffers & Msg SIZE form SGML specification
+		m_flitSize=TPZSIMULATOR()->getSimulation(1)->getFlitSize();
+		cerr<<"Warning:g_TOPAZ_FLIT_SIZE was not specified in rubyconfig.defaults. It will be get from SGML specification."<<endl;
+	}
+	else {
+		m_flitSize=g_TOPAZ_FLIT_SIZE;
+	}
+	
+	if (m_flitSize == 0) {
+		cerr<<"<TOPAZ> FLITSIZE must be specified in simulation sgml file as <LinkWidth id=[whatever bytes]" << endl;
+		cerr<<"Closing simulation </TOPAZ>" << endl;
+		exit(-1);
+	}
+	
+	m_commandSizeTopaz=g_TOPAZ_COMMAND_SIZE/m_flitSize;
+	m_dataSizeTopaz=(g_DATA_BLOCK_BYTES+g_TOPAZ_COMMAND_SIZE)/m_flitSize;
+	
+	for (unsigned i = 1; i <= m_unify; i++) {
+		TPZSIMULATOR()->getSimulation(i)->setPacketLength(m_dataSizeTopaz); //VCT applied. Largest packet 
+	}
+	
+	//Clock ratio entre simuladores
+	if (g_TOPAZ_CLOCK_RATIO==0) {
+		m_processorClockRatio=int(TPZSIMULATOR()->getSimulation(1)->getNetworkClockRatioSGML());
+	}
+	else {
+		m_processorClockRatio=g_TOPAZ_CLOCK_RATIO;
+	}
+	assert(m_processorClockRatio>=1);
+	
+	this->enableTopaz(); //If some one need to run with topaz (recorder ... vgr... should disable
+	srandom(g_RANDOM_SEED); //Topaz may try to adjust random seed in initialization. Do it again for variab
+	srand(g_RANDOM_SEED);
+	srand48(g_RANDOM_SEED);
+#endif
 }
+
+#ifdef USE_TOPAZ
+int SimpleNetwork::getMessageSizeTopaz(MessageSizeType size_type) const {
+	switch(size_type) {
+		case MessageSizeType_Control:
+		case MessageSizeType_Request_Control:
+		case MessageSizeType_Reissue_Control:
+		case MessageSizeType_Response_Control:
+		case MessageSizeType_Writeback_Control:
+		case MessageSizeType_Forwarded_Control:
+		case MessageSizeType_Invalidate_Control:
+		case MessageSizeType_Unblock_Control:
+		case MessageSizeType_Persistent_Control:
+		case MessageSizeType_Completion_Control:
+			return m_commandSizeTopaz;
+			break;
+		case MessageSizeType_Data:
+		case MessageSizeType_Response_Data:
+		case MessageSizeType_ResponseLocal_Data:
+		case MessageSizeType_ResponseL2hit_Data:
+		case MessageSizeType_Writeback_Data:
+			return m_dataSizeTopaz;
+			break;
+		default:
+			ERROR_MSG("Invalid range for type MessageSizeType");
+			break;
+	}
+	return 0;
+}
+
+int SimpleNetwork::isRequest(MessageSizeType size_type) const {
+	switch(size_type) {
+		case MessageSizeType_Control:
+		case MessageSizeType_Request_Control:
+		case MessageSizeType_Reissue_Control:
+		case MessageSizeType_Response_Control:
+		case MessageSizeType_Writeback_Control:
+		case MessageSizeType_Forwarded_Control:
+		case MessageSizeType_Unblock_Control:
+		case MessageSizeType_Persistent_Control:
+			return 1;
+			break;
+		case MessageSizeType_Data:
+		case MessageSizeType_Response_Data:
+		case MessageSizeType_ResponseLocal_Data:
+		case MessageSizeType_ResponseL2hit_Data:
+		case MessageSizeType_Writeback_Data:
+		case MessageSizeType_Invalidate_Control:
+		case MessageSizeType_Completion_Control:
+			return 0;
+			break;
+        default:
+			ERROR_MSG("Invalid range for type MessageSizeType");
+			break;
+	}
+	return 0;
+}  
+
+bool SimpleNetwork::useGemsNetwork(int vnet) {
+	
+	// During warmup we use GEMS' network
+	if (unlikely(inWarmup()))
+		return true;
+	
+	// Messages in order must go all through the same network. If this is an
+	// ordered virtual network, send the message through the network where you
+	// find any message.
+	if (unlikely(isVNetOrdered(vnet))) {
+	   if((g_NUM_TOPAZ_THREADS>0) && (g_MAX_MESSAGES_THROUGH_GEMS>0)) {
+	      assert(numberOfTopazOrderedMessages() == 0);
+	      return true;
+	   } 
+		 else {
+		 	if (numberOfOrderedMessages() > 0) {
+				assert(numberOfTopazOrderedMessages() == 0);
+				return true;
+			} 
+			else if (numberOfTopazOrderedMessages() > 0) {
+				return false;
+			} 
+    }
+	}
+	
+	const int messages_in_ruby = numberOfMessages();
+	// FIXME: Topaz doesn't count correctly the number of messages. When this
+	// happens, we route all messages through topaz to be on the safe side.
+	// If you want to use g_MAX_MESSAGES_THROUGH_GEMS,
+	// fix TPZSIMULATOR()->getSimulation(1)->getNetwork()->getMessagesInNet()
+	if (m_number_topaz_messages < 0) {
+		static bool warn_topaz_count_is_wrong = true;
+		if (unlikely(warn_topaz_count_is_wrong)) {
+			WARN_EXPR(m_number_topaz_messages);
+			WARN_MSG("Topaz is not counting messages correctly, ignoring g_MAX_MESSAGES_THROUGH_GEMS.");
+			WARN_MSG("Please, fix topaz if you want to use this parameter.");
+			warn_topaz_count_is_wrong = false;
+		}
+		return false;
+	}
+	
+	// If the total number of messages is small (less than g_MAX_MESSAGES_THROUGH_GEMS), we can use the simplistic GEMS network
+	if ((messages_in_ruby + m_number_topaz_messages) < g_MAX_MESSAGES_THROUGH_GEMS)
+		return true;
+	else
+		return false;
+}
+#endif //USE_TOPAZ
 
 void SimpleNetwork::reset()
 {
@@ -230,6 +478,24 @@ const Vector<Throttle*>* SimpleNetwork::getThrottles(NodeID id) const
 
 void SimpleNetwork::printStats(ostream& out) const
 {
+#ifdef USE_TOPAZ
+  out<<endl;
+	out<<endl;
+	out<<" -----------------------------------------------"<< endl;
+	out<<"| <TOPAZ>: network performance and configuration|"<<endl;
+	out<<" -----------------------------------------------"<<endl;
+	out<<endl;
+  out<<"Ratio Processor Clock/Network Clock = "<<m_processorClockRatio<<endl;
+  out<<"Flit size in bytes                  = "<<m_flitSize<<" bytes"<<endl;
+  out<<"Command packets size                = "<<m_commandSizeTopaz<<" flits"<<endl;
+  out<<"Data packet size                    = "<<m_dataSizeTopaz<<" flits"<<endl;
+  for(unsigned currentVnet=1;currentVnet<=m_unify;currentVnet++) { 
+	
+    TPZSIMULATOR()->getSimulation(currentVnet)->writeSimulationStatus(out);
+    TPZSIMULATOR()->getSimulation(currentVnet)->getNetwork()->writeComponentStatus(out);
+  }
+  out<<"</TOPAZ>"<<endl;
+#else
   out << endl;
   out << "Network Stats" << endl;
   out << "-------------" << endl;
@@ -237,6 +503,7 @@ void SimpleNetwork::printStats(ostream& out) const
   for(int i=0; i<m_switch_ptr_vector.size(); i++) {
     m_switch_ptr_vector[i]->printStats(out);
   }
+#endif
 }
 
 void SimpleNetwork::clearStats()
@@ -282,3 +549,76 @@ void SimpleNetwork::print(ostream& out) const
 {
   out << "[SimpleNetwork]";
 }
+
+#ifdef USE_TOPAZ
+void SimpleNetwork::increaseNumMsg(int num)
+{
+	m_number_messages+=num;
+	//m_totalNetMsg+=num;
+}
+
+void SimpleNetwork::increaseNumTopazMsg(int num)
+{
+	m_number_topaz_messages+=num;
+	m_totalTopazMsg+=num;
+}
+
+void SimpleNetwork::decreaseNumMsg(int vnet)
+{
+  m_number_messages--;
+	assert(m_number_messages >= 0);
+	if (m_ordered[vnet]) {
+	  if ( numberOfOrderedMessages() > 0 ) {
+			assert(!(numberOfTopazOrderedMessages()>0));
+			m_number_ordered_messages--;
+		}
+	}
+}
+
+void SimpleNetwork::decreaseNumTopazMsg (int vnet)
+{
+  m_number_topaz_messages--;
+  assert(m_number_messages >= 0);
+	if (m_ordered[vnet]) {
+	  assert(!(numberOfOrderedMessages()>0));
+		m_number_topaz_ordered_messages--;
+	}
+}
+
+void SimpleNetwork::increaseNumOrderedMsg(int num)
+{
+	m_number_ordered_messages+=num;
+}
+
+void SimpleNetwork::increaseNumTopazOrderedMsg(int num)
+{
+	m_number_topaz_ordered_messages+=num;
+}
+
+/* More information about m_nodes at Topology.C
+ *  0              \
+ *  |              |  inputs
+ *  |              /
+ *  m_nodes-1
+ *  m_nodes        \
+ *  |              |  outputs
+ *  |              /
+ *  2*m_nodes-1
+ *  2*m_nodes      \
+ *  |              |  internal_nodes
+ *  |              /
+ *  3*m_nodes-1
+ *
+ * Parameter int_node is in the range of internal_nodes. In order to convert
+ * it to the same number asseen in the network file, 2*m_nodes must be
+ * substracted.
+ */
+void SimpleNetwork::setTopazMapping (SwitchID ext_node, SwitchID int_node) {
+	int_node -= 2*m_nodes;
+	MachineID machine = nodeNumber_to_MachineID(ext_node);
+	
+	m_forward_mapping[ext_node] = int_node;
+	m_reverse_mapping[int_node].add(machine);
+}
+
+#endif

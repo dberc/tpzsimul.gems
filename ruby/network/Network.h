@@ -110,6 +110,13 @@ public:
   virtual void clearStats() = 0;
   virtual void printConfig(ostream& out) const = 0;
   virtual void print(ostream& out) const = 0;
+#ifdef USE_TOPAZ
+	virtual void enableTopaz() =0;
+	virtual void disableTopaz()=0; 
+	virtual void setTopazMapping (SwitchID node0, SwitchID node1)=0;
+#endif
+	
+	
 
 private:
 

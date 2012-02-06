@@ -131,6 +131,11 @@ void Tester::checkForDeadlock()
       Sequencer* seq_ptr = g_system_ptr->getChip(processor/RubyConfig::numberOfProcsPerChip())->getSequencer(processor%RubyConfig::numberOfProcsPerChip());
       assert(seq_ptr != NULL);
       WARN_EXPR(*seq_ptr);
+#ifdef USE_TOPAZ
+      cerr<<"******TOPAZ POST DEADLOCK STATS************"<<endl;
+      g_system_ptr->getNetwork()->printStats(cerr);
+#endif
+		
       ERROR_MSG("Deadlock detected.");
     }
   }

@@ -587,11 +587,17 @@ void ruby_load_caches(char* name)
     cout << "Error: ruby_load_caches requires a file name" << endl;
     return;
   } 
-
+#ifdef USE_TOPAZ
+	g_system_ptr->getNetwork()->disableTopaz();
+#endif
   cout << "Reading cache contents from '" << name << "'...";
   int read = Tracer::playbackTrace(name);
   cout << "done. (" << read << " cache lines read)" << endl;
   ruby_clear_stats();
+#ifdef USE_TOPAZ
+	g_system_ptr->getNetwork()->enableTopaz();
+#endif
+	
 }
 
 extern "C"

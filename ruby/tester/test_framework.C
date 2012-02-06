@@ -118,9 +118,11 @@ void tester_main(int argc, char **argv)
     g_eventQueue_ptr->triggerAllEvents();
 
     // This call is placed here to make sure the cache dump code doesn't fall victim to code rot
-    if (!(g_SYNTHETIC_DRIVER || g_DETERMINISTIC_DRIVER)) {
-      tester_record_cache();
-    }
+#ifndef USE_TOPAZ
+	  if (!(g_SYNTHETIC_DRIVER || g_DETERMINISTIC_DRIVER)) {
+		  tester_record_cache();
+	  }
+#endif
   }
   tester_destroy();
 }
@@ -260,7 +262,28 @@ static void parseOptions(int argc, char **argv)
     switch (c) {
     case 0:
       break;
-        
+    case 'S':
+	  checkArg(c);
+	  cout << "  Using TOPAZ net = " << string(optarg) << endl;
+	  g_TOPAZ_SIMULATION= strdup(optarg);
+	  break;
+		case 'C':
+			checkArg(c);
+			cout << "  RUBY is  " << atoi(optarg) << " times faster than TOPAZ"<< endl;
+			g_TOPAZ_CLOCK_RATIO= atoi(optarg);
+			break;
+		case 'B':
+			checkArg(c);
+			cout << " Links in TOPAZ are " << atoi(optarg) << " bytes width"<< endl;
+			g_TOPAZ_FLIT_SIZE= atoi(optarg);
+			break;
+		case 'X':
+			checkArg(c);
+			cout << " Packet command size is " << atoi(optarg) << " bytes"<< endl;
+			g_TOPAZ_COMMAND_SIZE= atoi(optarg);
+			break;
+			
+			
     case 'c': 
       checkArg(c);
       cout << "  component filter string = " << optarg << endl;
